@@ -1,0 +1,17 @@
+# Environnement virtuel
+venv/
+.env
+
+# Cache Python
+__pycache__/
+*.pyc
+
+# Streamlit
+.streamlit/
+
+# Editeurs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
