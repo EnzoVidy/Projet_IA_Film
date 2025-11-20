@@ -79,8 +79,8 @@ def generer_critique(titre, description):
 def generer_synopsis(titre):
     prompt = ChatPromptTemplate.from_template(
         """
-Génère un synopsis original pour un film intitulé : "{titre}".
-Format : 10 lignes, style professionnel.
+        Génère un synopsis original pour un film intitulé : "{titre}".
+        Format : strictement 25 à 70 mots, style professionnel.
         """
     )
     chain = prompt | model | parser
@@ -93,15 +93,31 @@ Format : 10 lignes, style professionnel.
 def generer_casting(synopsis):
     prompt = ChatPromptTemplate.from_template(
         """
-À partir du synopsis suivant : {synopsis}
+        À partir du synopsis suivant : {synopsis}
 
-Propose un casting d’acteurs adaptés :
-- Rôle principal
-- Antagoniste
-- Rôle secondaire
-- Cameo
+        Génère un casting concis et professionnel.
+        CONTRAINTES STRICTES :
+        - Pas de bonus, pas d'analyse de film, pas d'esthétique visuelle.
+        - Ne fournis QUE le casting.
+        - Pour chaque rôle : 1 acteur + justification courte (max 2 lignes).
+        - Format imposé :
 
-Explique brièvement pourquoi chaque acteur est pertinent.
+        Rôle principal : Nom de l’acteur
+        Justification : ...
+
+        Antagoniste : Nom de l’acteur
+        Justification : ...
+
+        Secondaire : Nom de l’acteur
+        Justification : ...
+
+        ...
+
+        Cameo : Nom de l’acteur
+        Justification : ...
+
+        Ne dépasse jamais 15 lignes au total.
+        Respecte le caractère du synopsis, même s'il est fantastique ou historique.
         """
     )
     chain = prompt | model | parser
@@ -114,16 +130,15 @@ Explique brièvement pourquoi chaque acteur est pertinent.
 def corriger_script(texte):
     prompt = ChatPromptTemplate.from_template(
         """
-Corrige le texte suivant :
-{texte}
+        Corrige le texte suivant :
+        {texte}
 
-Objectifs :
-- Fluidité
-- Structure
-- Clarté
-- Ton cinématographique
+        Règles strictes :
+        - Ne modifie PAS l'histoire.
+        - Ne change PAS le sens.
+        - Améliore : vocabulaire, clarté, structure, style cinématographique léger.
 
-Retourne uniquement la version corrigée.
+        Retourne UNIQUEMENT la version corrigée, concise.
         """
     )
     chain = prompt | model | parser
@@ -136,16 +151,26 @@ Retourne uniquement la version corrigée.
 def generer_bande_annonce(synopsis):
     prompt = ChatPromptTemplate.from_template(
         """
-Tu es une voix-off de bande-annonce hollywoodienne.
-À partir du synopsis suivant : {synopsis}
+        Tu es une voix-off professionnelle spécialisée dans les bandes-annonces hollywoodiennes.
 
-Génère une bande-annonce dramatique, format voix off :
-- Introduction mystérieuse
-- Tension qui monte
-- Présentation du conflit
-- Phrase choc finale
+        À partir du synopsis suivant :
+        {synopsis}
 
-Style : "In a world where..."
+        Produit une bande-annonce TEXTUELLE, au format VOIX-OFF uniquement.
+
+        Contraintes :
+        - Garde un ton cinématographique mais concis.
+        - N'ajoute pas trop de nouveaux éléments qui n’existent pas dans le synopsis.
+        - Structure obligatoire (mais à ne pas montrer) :
+            1. Introduction mystérieuse
+            2. Tension qui monte / présentation du contexte
+            3. Présentation du conflit
+            4. Phrase finale percutante
+        - Pas de scènes très longues ou inventées : reste sobre et évocateur.
+        - Pas de *storytelling* détaillé, pas de dialogues inventés.
+        - Pas de notes, pas d’explications, pas de musique/ambiance décrite en détail.
+
+        Retourne UNIQUEMENT la bande-annonce de la VOIX-OFF, donc seulement ce qui sera dit par la voix-off.
         """
     )
     chain = prompt | model | parser
