@@ -22,10 +22,20 @@ parser = StrOutputParser()
 def recommander_films(films):
     prompt = ChatPromptTemplate.from_template(
         """
-Tu es un expert cinéma. À partir des films suivants : {films}
+        Tu es un expert cinéma spécialisé en recommandations personnalisées.
+        À partir des films suivants : {films}
 
-Propose 10 films similaires, triés par pertinence.
-Justifie chaque recommandation en une phrase.
+        Ta mission :
+        - Trouve 10 films REELS (aucune invention)
+        - Triés par similarité thématique + ambiance + style
+        - Justification courte (max 10 mots)
+        - Format minimaliste, pas d’introduction ni conclusion
+        - Aucun bonus, aucun commentaire hors liste
+
+        Format :
+
+        1. Titre (année) — justification
+        2. ...
         """
     )
     chain = prompt | model | parser
@@ -52,10 +62,11 @@ Donne uniquement le genre principal du film (un seul mot).
 def generer_critique(titre, description):
     prompt = ChatPromptTemplate.from_template(
         """
-Écris une critique professionnelle du film "{titre}".
-Informations : {description}
+        Écris une critique professionnelle du film "{titre}".
+        Informations : {description}
 
-Longueur : 15 lignes. Ton professionnel mais fluide.
+        Longueur : 15 lignes. Ton professionnel mais fluide.
+        Concis, objectif, avec essentiellement les informations fournies par l'utilisateur.
         """
     )
     chain = prompt | model | parser
