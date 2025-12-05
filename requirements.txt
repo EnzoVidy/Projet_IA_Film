@@ -3,3 +3,6 @@ langchain
 langchain-core
 langchain-mistralai
 python-dotenv
+pandas
+scikit-learn
+joblib

@@ -3,13 +3,17 @@ from dotenv import load_dotenv
 from langchain_mistralai.chat_models import ChatMistralAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from config import MISTRAL_MODEL, LLM_TEMPERATURE
 
 load_dotenv()
 api_key = os.getenv("MISTRAL_API_KEY")
 
+if not api_key:
+    raise ValueError("MISTRAL_API_KEY not found in .env file")
+
 model = ChatMistralAI(
-    model="mistral-medium-latest",
-    temperature=0.7,
+    model=MISTRAL_MODEL,
+    temperature=LLM_TEMPERATURE,
     api_key=api_key
 )
 
