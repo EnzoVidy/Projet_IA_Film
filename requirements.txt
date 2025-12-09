@@ -6,3 +6,9 @@ python-dotenv
 pandas
 scikit-learn
 joblib
+langchain-community
+tavily-python
+faiss-cpu
+pypdf
+sentence-transformers
+langchain-huggingface
