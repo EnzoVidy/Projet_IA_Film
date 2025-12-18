@@ -273,3 +273,55 @@ def generer_depouillement(texte_sequence):
     )
     chain = prompt | llm_struct
     return chain.invoke({"texte": texte_sequence}).scenes
+class CharacterProfile(BaseModel):
+    nom: str = Field(description="Nom complet du personnage")
+    archetype: str = Field(description="L'archétype (ex: Le Mentor, L'Élu, Le Bouffon)")
+    motivations: List[str] = Field(description="Liste de 3 motivations principales")
+    backstory: str = Field(description="Court résumé de son passé (2 phrases)")
+    points_faibles: List[str] = Field(description="Liste des faiblesses psychologiques")
+
+def generer_fiche_personnage_json(description_rapide):
+    """
+    Génère une fiche personnage et retourne l'objet Pydantic.
+    L'interface se chargera de l'afficher en JSON.
+    """
+    llm_struct = model.with_structured_output(CharacterProfile)
+    
+    prompt = ChatPromptTemplate.from_template(
+        """
+        Crée un personnage de film détaillé basé sur cette idée : "{description}".
+        Génère une structure de données complète.
+        """
+    )
+    
+    chain = prompt | llm_struct
+    return chain.invoke({"description": description_rapide})
+# ... (Tes imports existants en haut)
+
+# -------------------------------
+# 11. Extraction Paramètres Box-Office (NLP vers ML)
+# -------------------------------
+class BoxOfficeParams(BaseModel):
+    budget: float = Field(description="Le budget du film en DOLLARS US. Convertis si nécessaire (ex: '10 millions' -> 10000000). Si non précisé, mettre 0.")
+    runtime: float = Field(description="La durée du film en MINUTES. Convertis si nécessaire (ex: '2h30' -> 150). Si non précisé, mettre 0.")
+
+def extraire_parametres_box_office(texte_utilisateur):
+    """
+    Transforme une phrase naturelle en paramètres numériques pour le modèle ML.
+    """
+    llm_struct = model.with_structured_output(BoxOfficeParams)
+    
+    prompt = ChatPromptTemplate.from_template(
+        """
+        Tu es un assistant technique pour un studio de cinéma.
+        Ton but est d'extraire les données techniques d'une phrase utilisateur pour alimenter un algorithme de prédiction.
+        
+        Phrase utilisateur : "{texte}"
+        
+        Extrais le BUDGET (en $) et la DURÉE (en minutes).
+        Sois intelligent sur les conversions (1h = 60min, 1M = 1000000).
+        """
+    )
+    
+    chain = prompt | llm_struct
+    return chain.invoke({"texte": texte_utilisateur})

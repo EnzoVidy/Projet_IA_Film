@@ -11,10 +11,13 @@ from llm_utils import (
     analyser_concurrence_web,
     creer_vecteur_store,
     interroger_scenario,
-    generer_depouillement
+    generer_depouillement,
+    generer_fiche_personnage_json,
+    extraire_parametres_box_office
 )
 # Importation de la nouvelle partie ML
-from ml_utils import predict_box_office, train_model
+# On importe la nouvelle fonction qui compare les modèles
+from ml_utils import predict_box_office, train_and_compare_models
 from config import TEMP_DIR
 
 st.set_page_config(page_title="Filmind", layout="wide")
@@ -42,7 +45,8 @@ elif profil == "Producteur / Créateur de films":
         "Dépouillement Technique",
         "Générer un synopsis",
         "Trouver un casting",
-        "Créer une bande-annonce (texte)"
+        "Créer une bande-annonce (texte)",
+        "Générer Fiche Perso (JSON)"
     ]
 elif profil == "(Admin)":
     menu_options = ["Gestion des Modèles"]
@@ -210,6 +214,26 @@ elif profil == "Producteur / Créateur de films":
                 ba = generer_bande_annonce(synopsis)
             st.write("### Bande-annonce :")
             st.write(ba)
+    elif menu == "Générer Fiche Perso (JSON)":
+        st.subheader("🧬 Générateur de Personnage (Structured Output)")
+        st.info("Cette fonctionnalité génère une réponse strictement formatée en JSON.")
+        
+        idee = st.text_input("Idée du personnage (ex: Un détective cyborg dépressif) :")
+        
+        if st.button("Générer JSON"):
+            with st.spinner("Construction de la structure de données..."):
+                profil_perso = generer_fiche_personnage_json(idee)
+                
+            # Affichage visuel (User Friendly)
+            st.write(f"### 👤 {profil_perso.nom}")
+            st.write(f"**Archétype :** {profil_perso.archetype}")
+            st.write(f"**Backstory :** {profil_perso.backstory}")
+            
+            # Affichage du JSON brut (Pour le prof / Dev)
+            st.divider()
+            st.write("### 💻 Sortie JSON Brute (Backend)")
+            # On utilise .model_dump_json() de Pydantic pour avoir le string JSON
+            st.json(profil_perso.model_dump_json())
 
 # ---------------------------------------------------------
 # DATA SCIENTIST (ADMIN)
@@ -218,23 +242,74 @@ elif profil == "Producteur / Créateur de films":
 elif profil == "(Admin)":
     st.subheader("⚙️ Administration des modèles IA")
     
-    st.write("### 1. Modèle Prédictif (Random Forest)")
-    st.write("Permet de prédire le Box-Office.")
-    if st.button("Entraîner le modèle prédictif (Reload)"):
-        with st.spinner("Entraînement du modèle sur tmdb_5000_movies.csv..."):
-            res = train_model()
-        st.success(res)
+    # --- PARTIE 1 : ML COMPARATIF ---
+    st.write("### 1. Comparateur de Modèles (Auto-ML)")
+    st.write("Entraîne plusieurs modèles et sélectionne le meilleur pour les prédictions.")
+    
+    if st.button("Lancer l'entraînement et la comparaison"):
+        with st.spinner("Entraînement : Linear Reg vs Random Forest vs Gradient Boosting..."):
+            df_results, best_name = train_and_compare_models()
         
+        if isinstance(df_results, str): # Cas d'erreur
+            st.error(df_results)
+        else:
+            st.success(f"Entraînement terminé ! Le meilleur modèle est : **{best_name}**")
+            
+            # Affichage du tableau comparatif
+            st.write("#### 📊 Tableau des performances")
+            st.dataframe(df_results.style.highlight_max(axis=0, subset=["R2 Score"]), use_container_width=True)
+            
+            st.markdown("""
+            **Critères d'évaluation :**
+            * $R^2$ (Score) : Plus c'est proche de 1, plus le modèle "explique" bien la variance.
+            * **MAE (Mean Absolute Error)** : L'erreur moyenne en dollars.
+            """)
+            
+            # Graphique simple
+            st.write("#### Comparaison du Score R2")
+            st.bar_chart(df_results.set_index("Modèle")["R2 Score"])
+
     st.divider()
     
+    # --- PARTIE 2 : LLM FINE-TUNING ---
     st.write("### 2. Fine-Tuning Mistral (LLM)")
-    st.write("Générer les données JSONL pour le fine-tuning sur la plateforme Mistral.")
+    
+    st.info("Étape A : Préparer les données")
     if st.button("Générer fichier JSONL"):
         try:
             from finetune_prep import prepare_mistral_finetuning_data
             prepare_mistral_finetuning_data()
             st.success("Fichier 'mistral_finetune.jsonl' généré à la racine !")
             with open("mistral_finetune.jsonl", "r") as f:
-                st.download_button("Télécharger le JSONL", f, "mistral_finetune.jsonl")
+                st.download_button("Télécharger le JSONL (Backup)", f, "mistral_finetune.jsonl")
         except ImportError:
             st.error("Le fichier finetune_prep.py est introuvable.")
+
+    st.info("Étape B : Envoyer chez Mistral AI")
+    if st.button("🚀 LANCER LE FINE-TUNING (CLOUD)"):
+        # On vérifie d'abord que le fichier existe
+        if not os.path.exists("mistral_finetune.jsonl"):
+            st.error("Génère d'abord le fichier JSONL ci-dessus !")
+        else:
+            try:
+                # Import dynamique pour éviter les erreurs si mistralai n'est pas installé
+                from finetune_run import launch_mistral_finetuning
+                
+                with st.spinner("Contact de l'API Mistral (Upload + Start Job)..."):
+                    message, job_id = launch_mistral_finetuning()
+                
+                if job_id:
+                    st.success(message)
+                    st.balloons()
+                    st.markdown(f"""
+                        **Que faire maintenant ?**
+                        1. Va sur [La Console Mistral](https://console.mistral.ai/fine-tuning) pour suivre l'avancée.
+                        2. Quand le statut est `SUCCESS`, copie le nom du nouveau modèle.
+                        3. Colle-le dans `config.py` à la place de `MISTRAL_MODEL`.
+                    """)
+                else:
+                    st.error(message)
+            except ImportError:
+                st.error("Le module 'mistralai' n'est pas installé. Fais 'pip install mistralai'.")
+            except Exception as e:
+                st.error(f"Erreur script : {e}")
