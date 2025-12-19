@@ -1,124 +1,99 @@
-# 🎬 Filmind - Suite IA Complète pour Films
+# 🎬 Filmind – Suite IA & Cinéma
 
-## Structure des Dépendances
+**Filmind** est une plateforme intelligente conçue pour accompagner l'industrie cinématographique. En combinant la puissance des **LLM (Mistral AI via LangChain)** et du **Machine Learning (Scikit-Learn)**, l'application offre des outils d'analyse et de création tant pour les cinéphiles que pour les professionnels de la production.
 
-### Fichiers Principaux
+---
 
-#### 1. **`app.py`** (Interface Streamlit)
-   - **Imports depuis `llm_utils`** : Fonctions d'analyse/génération avec Mistral AI
-     - `recommander_films()` - Recommandations personnalisées
-     - `genre_depuis_synopsis()` - Classification de genre
-     - `generer_critique()` - Génération de critiques
-     - `generer_synopsis()` - Génération de synopses
-     - `generer_casting()` - Proposition de castings
-     - `corriger_script()` - Correction de textes
-     - `generer_bande_annonce()` - Génération de scripts de bande-annonce
-   
-   - **Imports depuis `ml_utils`** : Modèles prédictifs
-     - `predict_box_office()` - Prédiction des revenus au box-office
-     - `train_model()` - Entraînement du modèle Random Forest
-   
-   - **Imports depuis `finetune_prep`** : Préparation fine-tuning
-     - `prepare_mistral_finetuning_data()` - Génération du fichier JSONL
+## ✨ Fonctionnalités
 
-#### 2. **`llm_utils.py`** (LLM Functions - Mistral AI)
-   - Importe : `config.py` (MISTRAL_MODEL, LLM_TEMPERATURE)
-   - Importe : `.env` (MISTRAL_API_KEY)
-   - Dépend de : `langchain`, `langchain-core`, `langchain-mistralai`, `python-dotenv`
+### 🍿 Espace Spectateur
 
-#### 3. **`ml_utils.py`** (Machine Learning)
-   - Importe : `config.py` (MODEL_BOX_OFFICE, CSV_MOVIES, ML_RANDOM_STATE, ML_N_ESTIMATORS)
-   - Charge le CSV : `tmdb_5000_movies.csv`
-   - Sauvegarde : `box_office_model.pkl`
-   - Dépend de : `pandas`, `scikit-learn`, `joblib`
+* **Assistant IA (Agent) :** Un point d'entrée unique capable de comprendre l'intention de l'utilisateur (recommander, critiquer ou identifier un genre).
+* **Système de Recommandation :** Suggestions personnalisées basées sur vos goûts cinématographiques.
+* **Identification de Genre :** Analyse automatique du genre à partir d'un simple synopsis.
+* **Générateur de Critiques :** Rédaction de critiques structurées avec notation, points forts et points faibles.
 
-#### 4. **`finetune_prep.py`** (Data Preparation)
-   - Importe : `config.py` (CSV_MOVIES, FINETUNE_OUTPUT)
-   - Charge le CSV : `tmdb_5000_movies.csv`
-   - Génère : `mistral_finetune.jsonl`
-   - Dépend de : `pandas`, `json` (stdlib)
+### 💼 Espace Producteur & Créateur
 
-#### 5. **`config.py`** (Configuration Centralisée - NOUVEAU)
-   - Point central de configuration
-   - Définit les chemins des fichiers
-   - Centralise les paramètres de modèles
+* **Prédiction Box-Office :** Estimation des revenus générés à l'aide d'un modèle de régression entraîné sur les données historiques.
+* **Éclaireur de Marché :** Analyse de la concurrence en temps réel via une recherche web (Tavily) pour évaluer l'originalité d'un projet.
+* **Assistant Scénario (RAG) :** Téléchargez votre script PDF et posez des questions complexes sur l'intrigue ou les personnages.
+* **Dépouillement Technique :** Transformation automatique d'un récit en tableau de bord logistique (lieux, personnages, besoins spéciaux).
+* **Outils Créatifs :** Génération de *loglines*, suggestions de casting idéal, création de scripts de bande-annonce et fiches personnages au format JSON.
 
-#### 6. **`__init__.py`** (Package initialization - NOUVEAU)
-   - Documente le package
-   - Facilite les imports de sous-modules
+### ⚙️ Administration & ML Ops
 
-### Fichiers de Données
+* **Entraînement de Modèles :** Comparaison de modèles (Random Forest, Gradient Boosting, etc.) pour optimiser les prédictions.
+* **Fine-Tuning Mistral :** Pipeline complet pour préparer les données et lancer des jobs de fine-tuning sur le cloud Mistral AI.
 
-- **`tmdb_5000_movies.csv`** : Source pour entraînement ML et fine-tuning
-- **`tmdb_5000_credits.csv`** : Données supplémentaires (actuellement non utilisées)
-- **`.env`** : Configuration locale (MISTRAL_API_KEY)
+---
 
-### Fichiers Générés
+## 🛠️ Stack Technique
 
-- **`box_office_model.pkl`** : Modèle ML entraîné (généré par `ml_utils.py`)
-- **`mistral_finetune.jsonl`** : Données fine-tuning (généré par `finetune_prep.py`)
+* **Interface :** [Streamlit](https://streamlit.io/)
+* **Intelligence Artificielle :** [Mistral AI](https://mistral.ai/), [LangChain](https://www.langchain.com/)
+* **Machine Learning :** Pandas, Scikit-Learn, Joblib
+* **RAG (Retrieval Augmented Generation) :** FAISS, HuggingFace Embeddings
+* **Recherche Web :** Tavily API
 
-### Dépendances Python
+---
 
-```
-streamlit           # Interface Web
-langchain           # Orchestration LLM
-langchain-core      # Core LLM abstractions
-langchain-mistralai # Mistral AI provider
-python-dotenv       # Gestion .env
-pandas              # Data manipulation (ML + fine-tuning prep)
-scikit-learn        # Machine Learning algorithms
-joblib              # Model serialization
-```
+## 🚀 Installation
 
-### Graphique de Dépendances
-
-```
-app.py
-├── llm_utils.py
-│   ├── config.py
-│   ├── .env
-│   └── [langchain dependencies]
-├── ml_utils.py
-│   ├── config.py
-│   ├── tmdb_5000_movies.csv
-│   └── [pandas, scikit-learn, joblib]
-└── finetune_prep.py
-    ├── config.py
-    ├── tmdb_5000_movies.csv
-    └── [pandas, json]
-
-config.py
-├── Centralise paths et parametres
-└── Crée les repertoires necessaires
-```
-
-## Installation & Lancement
-
-### 1. Installation des dépendances
+1. **Cloner le dépôt :**
 ```bash
-cd /home/flood/Documents/iut/s5/iacine/Projet_IA_Film
-source venv/bin/activate
+git clone https://github.com/votre-compte/filmind.git
+cd filmind
+
+```
+
+
+2. **Installer les dépendances :**
+```bash
 pip install -r requirements.txt
+
 ```
 
-### 2. Configuration
-Assurez-vous que `.env` contient :
-```
-MISTRAL_API_KEY=votre_clé_api
+
+3. **Configurer les variables d'environnement :**
+Créez un fichier `.env` à la racine du projet :
+```env
+MISTRAL_API_KEY=votre_cle_mistral
+TAVILY_API_KEY=votre_cle_tavily
+
 ```
 
-### 3. Lancement
+
+4. **Vérifier la configuration :**
+```bash
+python check_deps.py
+
+```
+
+
+5. **Lancer l'application :**
 ```bash
 streamlit run app.py
+
 ```
 
-Accédez à : `http://localhost:8501`
 
-## Vérification des Imports
 
-✅ Tous les imports sont correctement configurés
-✅ Toutes les dépendances sont listées dans `requirements.txt`
-✅ Les chemins sont centralisés dans `config.py`
-✅ Le fichier `.env` est en place
+---
 
+## 📁 Structure du Projet
+
+| Fichier | Rôle |
+| --- | --- |
+| `app.py` | Interface utilisateur principale (Streamlit). |
+| `llm_utils.py` | Logique des agents, du RAG et des sorties structurées. |
+| `ml_utils.py` | Pipeline d'entraînement et de prédiction Box-Office. |
+| `config.py` | Configuration centralisée (chemins, modèles, paramètres). |
+| `finetune_prep.py` | Préparation des datasets au format `.jsonl`. |
+| `finetune_run.py` | Communication avec l'API Mistral pour le fine-tuning. |
+
+---
+
+## 📊 Modèle Prédictif
+
+Le modèle de prédiction du Box-Office utilise les données de **TMDB** pour corréler le budget, la durée, la popularité et le genre avec les revenus mondiaux. Le système sélectionne automatiquement le modèle le plus performant (par défaut **Random Forest**) lors de la phase d'administration.
