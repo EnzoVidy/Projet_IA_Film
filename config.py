@@ -18,7 +18,7 @@ FINETUNE_OUTPUT = PROJECT_ROOT / "mistral_finetune.jsonl"
 
 # LLM
 MISTRAL_MODEL = "mistral-large-latest"
-MISTRAL_MODEL_FINETUNE = ""
+MISTRAL_MODEL_FINETUNE = "ft:open-mistral-7b:171d30fc:20251218:1eee8a0e"
 LLM_TEMPERATURE = 0.7
 
 # ML
