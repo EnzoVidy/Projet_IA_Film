@@ -5,7 +5,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
-from config import MISTRAL_MODEL, LLM_TEMPERATURE
+from config import MISTRAL_MODEL, MISTRAL_MODEL_FINETUNE, LLM_TEMPERATURE
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
@@ -22,6 +22,12 @@ if not api_key:
 
 model = ChatMistralAI(
     model=MISTRAL_MODEL,
+    temperature=LLM_TEMPERATURE,
+    api_key=api_key
+)
+
+modelFinetuned = ChatMistralAI(
+    model=MISTRAL_MODEL_FINETUNE,
     temperature=LLM_TEMPERATURE,
     api_key=api_key
 )
@@ -91,7 +97,7 @@ class IntentRouter(BaseModel):
     infos_supplemementaires: Optional[str] = Field(description="Notes additionnelles")
 
 # ==========================================
-# FONCTIONS SPECTATEUR (Agent & Classique)
+# FONCTIONS SPECTATEUR
 # ==========================================
 
 def router_demande_spectateur(requete_utilisateur):
@@ -104,17 +110,38 @@ def router_demande_spectateur(requete_utilisateur):
 
 def recommander_films(films_aimes):
     llm_struct = model.with_structured_output(ReponseRecommandations)
-    prompt = ChatPromptTemplate.from_template("Expert cinéma. L'utilisateur aime : {films_aimes}. Recommande 5 films.")
-    return (prompt | llm_struct).invoke({"films_aimes": films_aimes}).films
+    
+    prompt = ChatPromptTemplate.from_template(
+        """
+        Tu es un expert cinéma. L'utilisateur aime : {films_aimes}.
+        Recommande 5 films pertinents. Sois précis sur les années.
+        """
+    )
+    chain = prompt | llm_struct
+    reponse = chain.invoke({"films_aimes": films_aimes})
+    return reponse.films
 
 def genre_depuis_synopsis(synopsis):
     llm_struct = model.with_structured_output(GenreResponse)
-    prompt = ChatPromptTemplate.from_template("Analyse ce synopsis et extrais le genre : {synopsis}")
-    return (prompt | llm_struct).invoke({"synopsis": synopsis}).genre
+    prompt = ChatPromptTemplate.from_template(
+        "Analyse ce synopsis et extrais le genre principal : {synopsis}"
+    )
+    chain = prompt | llm_struct
+    reponse = chain.invoke({"synopsis": synopsis})
+    return reponse.genre
 
 def generer_critique(titre, description):
-    prompt = ChatPromptTemplate.from_template("Écris une critique pro de 15 lignes pour {titre}. Infos : {description}")
-    return (prompt | model | parser).invoke({"titre": titre, "description": description})
+    prompt = ChatPromptTemplate.from_template(
+        """
+        Écris une critique professionnelle du film "{titre}".
+        Informations : {description}
+
+        Longueur : 15 lignes. Ton professionnel mais fluide.
+        Concis, objectif, avec essentiellement les informations fournies par l'utilisateur.
+        """
+    )
+    chain = prompt | model | parser
+    return chain.invoke({"titre": titre, "description": description})
 
 def generer_critique_json(titre, description):
     llm_struct = model.with_structured_output(CritiqueStructuree)
@@ -125,59 +152,169 @@ def generer_critique_json(titre, description):
 # FONCTIONS PRODUCTEUR
 # ==========================================
 
-def generer_synopsis(titre):
-    prompt = ChatPromptTemplate.from_template("Génère un synopsis de 25-70 mots pour : {titre}")
-    return (prompt | model | parser).invoke({"titre": titre})
+def generer_logline(titre):
+    prompt_generation = ChatPromptTemplate.from_template(
+        """Based on the movie title '{titre}', generate a compelling, professional logline.
+        Style: Dramatic, cinematic, concise (under 50 words).
+        """
+    )
+    
+    logline_anglais = (prompt_generation | modelFinetuned | parser).invoke({"titre": titre})
+
+    prompt_traduction = ChatPromptTemplate.from_template(
+        """Tu es un adaptateur de scénario expert.
+        Traduis cette logline en FRANÇAIS.
+        Garde le ton dramatique et le style "cinéma".
+        
+        logline originale : "{texte}"
+        
+        Retourne uniquement la traduction française.
+        """
+    )
+    
+    res_final = (prompt_traduction | model | parser).invoke({"texte": logline_anglais})
+    return res_final
+
 
 def generer_casting(synopsis):
     llm_struct = model.with_structured_output(CastingResponse)
-    prompt = ChatPromptTemplate.from_template("Propose un casting (Principal, Antagoniste, etc.) pour : {synopsis}")
-    return (prompt | llm_struct).invoke({"synopsis": synopsis}).roles
+    
+    prompt = ChatPromptTemplate.from_template(
+        """
+        À partir du synopsis : {synopsis}
+        Propose un casting idéal (Principal, Secondaire, Antagoniste, Cameo).
+        """
+    )
+    chain = prompt | llm_struct
+    reponse = chain.invoke({"synopsis": synopsis})
+    return reponse.roles
 
 def generer_bande_annonce(synopsis):
-    prompt = ChatPromptTemplate.from_template("""Tu es une voix-off pro. {synopsis}. 
-    Retourne UNIQUEMENT la VOIX-OFF. Structure : Intro mystère, Tension, Conflit, Final percutant.""")
-    return (prompt | model | parser).invoke({"synopsis": synopsis})
+    prompt = ChatPromptTemplate.from_template(
+        """
+        Tu es une voix-off professionnelle spécialisée dans les bandes-annonces hollywoodiennes.
+
+        À partir du synopsis suivant :
+        {synopsis}
+
+        Produit une bande-annonce TEXTUELLE, au format VOIX-OFF uniquement.
+
+        Contraintes :
+        - Garde un ton cinématographique mais concis.
+        - N'ajoute pas trop de nouveaux éléments qui n’existent pas dans le synopsis.
+        - Structure obligatoire (mais à ne pas montrer) :
+            1. Introduction mystérieuse
+            2. Tension qui monte / présentation du contexte
+            3. Présentation du conflit
+            4. Phrase finale percutante
+        - Pas de scènes très longues ou inventées : reste sobre et évocateur.
+        - Pas de *storytelling* détaillé, pas de dialogues inventés.
+        - Pas de notes, pas d’explications, pas de musique/ambiance décrite en détail.
+
+        Retourne UNIQUEMENT la bande-annonce de la VOIX-OFF, donc seulement ce qui sera dit par la voix-off.
+        """
+    )
+    chain = prompt | model | parser
+    return chain.invoke({"synopsis": synopsis})
 
 def analyser_concurrence_web(pitch):
-    prompt_keywords = ChatPromptTemplate.from_template("Extrais mots clés en anglais pour : {pitch}")
-    mots_cles = (prompt_keywords | model | parser).invoke({"pitch": pitch})
+    prompt_keywords = ChatPromptTemplate.from_template(
+        """
+        Extrais les concepts clés de ce pitch de film pour une recherche Google.
+        Traduis-les en anglais pour de meilleurs résultats.
+        Format attendu : juste les mots clés séparés par des espaces.
+        
+        Pitch : "{pitch}"
+        """
+    )
+    chain_keywords = prompt_keywords | model | parser
+    mots_cles = chain_keywords.invoke({"pitch": pitch})
+
+    requete_optimisee = f"movie plot similar to {mots_cles} released in 2023 2024 2025 or upcoming 2026"
+    
+    print(f"Recherche Tavily lancée : {requete_optimisee}") 
+
     search = TavilySearchResults(max_results=5, tavily_api_key=tavily_api_key)
+    
     try:
-        results = search.invoke(f"movie plot similar to {mots_cles} 2024 2025")
-        context_web = str(results)
-    except:
-        context_web = "Aucun résultat trouvé."
-    llm_struct = model.with_structured_output(RapportConcurrence)
-    prompt = ChatPromptTemplate.from_template("Analyse la concurrence. Pitch: {pitch}. Web: {context_web}")
-    return (prompt | llm_struct).invoke({"pitch": pitch, "context_web": context_web})
+        results_raw = search.invoke(requete_optimisee)
+        context_web = str(results_raw)
+    except Exception as e:
+        context_web = f"Erreur de recherche : {e}"
+
+    llm_struct = model.with_structured_output(RapportConcurrence)    
+    prompt_analyse = ChatPromptTemplate.from_template(
+        """
+        Tu es un analyste de marché cinéma impitoyable.
+        
+        TON PITCH CIBLE : "{pitch}"
+        
+        RÉSULTATS DE LA RECHERCHE WEB (Films récents/à venir) :
+        {context_web}
+        
+        Instructions :
+        1. Compare le pitch cible UNIQUEMENT avec les films trouvés dans les résultats web.
+        2. Si tu trouves un film dans les résultats avec une histoire très similaire (plus de 70% de ressemblance), le score d'originalité doit être BAS (< 40).
+        3. Ignore les vieux films classiques (années 80, 90, 2000) sauf s'ils sont dans les résultats de recherche. Concentre-toi sur la nouveauté.
+        4. Remplis le rapport structuré.
+        """
+    )
+    
+    chain = prompt_analyse | llm_struct
+    return chain.invoke({"pitch": pitch, "context_web": context_web})
 
 # ==========================================
 # RAG & TECHNIQUE
 # ==========================================
 
 def creer_vecteur_store(pdf_path):
+    """Indexe un PDF pour le RAG"""
     loader = PyPDFLoader(pdf_path)
-    splits = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200).split_documents(loader.load())
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    return FAISS.from_documents(splits, embeddings)
+    docs = loader.load()
 
-def format_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    splits = splitter.split_documents(docs)
+
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    
+    vectorstore = FAISS.from_documents(splits, embeddings)
+    return vectorstore
 
 def interroger_scenario(vectorstore, question):
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "Script-doctor. Contexte: {context}"),
+    """Pose une question au PDF"""
+    retriever = vectorstore.as_retriever()
+
+    prompt_answer = ChatPromptTemplate.from_messages([
+        ("system", 
+         "Tu es un script-doctor assistant. Utilise le contexte ci-dessous :\n\n{context}\n\n"
+         "Réponds précisément à la question."),
         ("human", "{question}")
     ])
-    chain = ({"context": retriever | format_docs, "question": RunnablePassthrough()} | prompt | model | parser)
-    return chain.invoke(question)
+    
+    rag_chain = (
+        {
+            "context": (lambda x: x["question"]) | retriever,
+            "question": lambda x: x["question"],
+        }
+        | prompt_answer
+        | model
+        | StrOutputParser()
+    )
+    return rag_chain.invoke({"question": question})
 
 def generer_depouillement(texte_sequence):
     llm_struct = model.with_structured_output(Depouillement)
-    prompt = ChatPromptTemplate.from_template("Dépouillement technique (scènes, lieux, FX) de : {texte}")
-    return (prompt | llm_struct).invoke({"texte": texte_sequence}).scenes
+    prompt = ChatPromptTemplate.from_template(
+        """
+        Analyse le texte suivant (synopsis détaillé ou séquence de script).
+        Réalise un "dépouillement" technique pour la production.
+        Découpe l'action en scènes distinctes.
+        
+        Texte : {texte}
+        """
+    )
+    chain = prompt | llm_struct
+    return chain.invoke({"texte": texte_sequence}).scenes
 
 def generer_fiche_personnage_json(description):
     llm_struct = model.with_structured_output(CharacterProfile)
