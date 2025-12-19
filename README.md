@@ -1,3 +1,4 @@
+Doc générée par IA
 # Filmind : Intelligence Artificielle appliquée au cycle de vie du film
 
 **Filmind** est une station de travail unifiée permettant d'exploiter les modèles de langage (LLM) et l'apprentissage automatique (ML) pour l'analyse de données cinématographiques, l'aide à l'écriture et la planification de production.
